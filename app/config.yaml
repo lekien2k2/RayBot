@@ -1,0 +1,57 @@
+Robot-config:
+  serial:
+    # port: /dev/ttyACM0
+    port: COM6
+    baudrate: 115200
+    timeout: 1
+    bytesize: 8
+    parity: N
+    stopbits: 1
+
+  qr_serial:
+    port: /dev/ttyS2
+    baudrate: 115200
+    timeout: 1
+    bytesize: 8
+    parity: N
+    stopbits: 1
+
+  cam_serial:
+    port: /dev/ttyS1
+    # port: COM6
+    baudrate: 115200
+    timeout: 1
+    bytesize: 8
+    parity: N
+    stopbits: 1
+
+  # Server configuration
+  server:
+    port: 8000
+    host: "192.168.1.177"
+    protocol: "ws://"
+    path: "/ws-raybot?id=d6db2969-c7db-48c9-8e90-5f14a7fe209b"
+    username: "admin"
+    password: "admin"
+    ssl: false
+    id: "d6db2969-c7db-48c9-8e90-5f14a7fe209b"
+    timeout: 10
+
+  # Robot configuration
+  raybot:
+    robot-name: "Robot"
+    robot-type: "Robot"
+    API_HOST: "0.0.0.0"
+    API_PORT: 80
+  # Camera configuration
+  camera:
+    camera-name: "Camera"
+    camera-type: "Camera"
+    camera-port: 0
+    camera-width: 640
+    camera-height: 480
+    camera-fps: 30
+
+  distance:
+    min_lift_stop: 10
+    min_move_stop: 30
