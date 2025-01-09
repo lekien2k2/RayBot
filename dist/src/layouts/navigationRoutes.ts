@@ -1,6 +1,6 @@
 export const routeViewList = [
-  { icon: "mdi-television-guide", title: "Dashboard", to: "/dashboard" },
-  { icon: "mdi-webcam", title: "Webcam", to: "/webcam" },
+  { icon: "mdi-television-guide", title: "Dashboard", to: "/" },
+  { icon: "mdi-webcam", title: "Webcam", to: "/camera" },
   { icon: "mdi-console", title: "Console", to: "/console" },
   { icon: "mdi-database-search", title: "Logs", to: "/logs" },
   // { icon: "mdi-account", title: "Preferences", to: "/preferences" },

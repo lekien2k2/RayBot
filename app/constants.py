@@ -4,4 +4,4 @@ API_PORT = 80
 JWT_ALG: str = "HS256"
 JWT_SECRET: str = "secret"
 JWT_EXP: int = 60 * 60
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "INFO"

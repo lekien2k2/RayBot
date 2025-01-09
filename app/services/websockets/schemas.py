@@ -129,7 +129,7 @@ class SendSchema(BaseModel):
 
 
 class CommandReciveSchema(BaseModel):
-    operation: Optional[OperationEnum] = Field(..., alias="op")
+    operation: Optional[OperationEnum] = Field(None, alias="op")
     type: str
     id: str
     data: Optional[dict] = None

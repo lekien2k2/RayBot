@@ -1,0 +1,28 @@
+1. Cấu Trúc Các Hàm Quan Trọng
+a. Khởi Động Stream
+Cú pháp: cameraQR.active(mode="camQrLocation", read_qr=True)
+Tham số:
+
+    mode: Chọn camera cần khởi động ("camQrLocation" hoặc "camQrCheckBox").
+    read_qr: True nếu muốn đọc mã QR từ luồng video, False nếu chỉ muốn phát stream.
+
+
+b. Dừng Stream
+Cú pháp: cameraQR.stop_stream(mode="camQrLocation")
+Tham số:
+    mode: Chọn camera cần dừng ("camQrLocation" hoặc "camQrCheckBox").
+
+
+c. Lấy Trạng Thái Camera
+    Cú pháp: status = cameraQR.get_status()
+    print(status)
+Kết quả trả về:
+        {
+            "camQrLocation": {"state": "streaming", "last_qr": "QR_Code_123"},
+            "camQrCheckBox": {"state": "stop", "last_qr": None}
+        }
+d. Truy Cập Stream
+
+URL Truy Cập: http://<IP>:<port>/video_feed
+<IP>: Địa chỉ IP của máy chủ.
+<port>: Port được cấu hình (ví dụ: 9999).

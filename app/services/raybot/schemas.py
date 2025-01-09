@@ -17,7 +17,12 @@ class ReciveDataSchema(BaseModel):
     lift_pwm: Optional[float] = None
     safety: Optional[bool] = None
     door_state: Optional[bool] = None
-
+    min_distance_move: Optional[float] = None
+    min_distance_lift: Optional[float] = None
+    max_distance_lift: Optional[float] = None
+    max_pwm_movement: Optional[float] = None
+    max_pwm_lift: Optional[float] = None
+    
 
 class RayBotInfoSchema(BaseModel):
     current_cmd: str
@@ -31,6 +36,8 @@ class RayBotInfoSchema(BaseModel):
     min_distance_move: float
     min_distance_lift: float
     max_distance_lift: float
+    max_pwm_movement: float
+    max_pwm_lift: float
     lift_motor: int
     lift_pwm: float
     safety: bool
@@ -47,6 +54,18 @@ class RayBotInfoSchema(BaseModel):
     @qr_location.setter
     def qr_location(self, value):
         self._qr_location = value
+
+
+class RaybotConfigSchema(BaseModel):
+    min_distance_move: float
+    max_distance_move: float
+    min_distance_lift: float
+    max_distance_lift: float
+    home_location: str
+    max_pwm_movement: float
+    max_pwm_lift: float
+    parameter_motor: int
+    home_location: str
 
 
 class CommandEnum(StrEnum):

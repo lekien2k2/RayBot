@@ -4,13 +4,18 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.4",
+    "flask>=3.1.0",
+    "opencv-python>=4.10.0.84",
+    "orjson>=3.10.12",
     "pydantic>=2.9.2",
     "pyserial>=3.5",
     "python-jose>=3.3.0",
+    "python-multipart>=0.0.20",
     "pyyaml>=6.0.2",
+    "pyzbar>=0.1.9",
     "sqlalchemy>=2.0.36",
     "uvicorn>=0.32.0",
     "websockets>=14.0",

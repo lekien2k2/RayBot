@@ -1,0 +1,5 @@
+camQrLocation = 9
+camQrCheckBox = 1
+portStreamLocation = 9999
+portStreamCheckBox = 8888
+resolution = (320, 320)

@@ -8,6 +8,7 @@ from time import sleep
 
 from enum import Enum
 from typing import Any, Dict, Set
+import uuid
 
 import websockets
 
@@ -43,20 +44,18 @@ class WebSocketClient(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.url = f"{protocol}{host}:{port}{path}"
-        self.headers = {"device-id": device_id}
         self.timeout = timeout
         self.device_id = device_id
         self.ws = None
+        self.lock = Lock()
 
     def connect(self):
-        try:
-            self.ws = connect(
-                self.url,
-                additional_headers=self.headers,
-            )
-            logger.info("Connected")
-        except Exception as e:
-            logger.error(f"Error: {e}")
+        with self.lock:
+            try:
+                self.ws = connect(self.url, close_timeout=2)
+                logger.info("Connected")
+            except Exception as e:
+                logger.error(f"Error: {e}")
 
     def send(self, op, topic=None, id=None, data=None):
         try:
@@ -206,48 +205,80 @@ class WebSocketClient(Thread):
                 #     self.connect()
                 time.sleep(0.01)
 
-            except ConnectionClosed:
+            except (ConnectionClosed, ConnectionError, OSError):
                 logger.warning(
                     "WebSocket connection closed during sending. Reconnecting..."
                 )
-                self.ws = None  # Đặt lại kết nối
-                self.connect()
+                # self.ws = None  # Đặt lại kết nối
+
             except Exception as e:
                 logger.error(f"Error while sending: {e}")
+
+    def check_connection(self):
+        while True:
+            try:
+                if self.ws:
+                    # Gửi ping và chờ phản hồi pong
+                    # WebSocketClient.send_msg_queue.put(
+                    #     SendSchema(
+                    #         op=OperationEnum.response,
+                    #         id="aa86ecf1-85fe-4c49-8fa9-bc3f8f8b1d13",
+                    #         data={"status": "ok", "name": f"ping-{uuid.uuid4()}"},
+                    #     )
+                    # )
+                    pong_event = self.ws.ping()
+                    pong_event.wait(timeout=5)  # Thời gian chờ là 5 giây
+
+                    if pong_event.is_set():
+                        # logger.info("Ping successful, pong received.")
+                        pass
+                    else:
+                        logger.warning("Pong not received. Connection may be lost.")
+                        raise ConnectionError("Pong response timeout.")
+                else:
+                    self.connect()
+
+            except (ConnectionClosed, ConnectionError, OSError):
+                logger.warning(
+                    "WebSocket connection closed or pong failed. Reconnecting..."
+                )
+                self.ws = None  # Đặt lại kết nối
+                self.connect()
+
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+
+            sleep(1)  # Lặp lại kiểm tra sau mỗi 1 giây
 
     def listen_to_server(self):
         """Lắng nghe tin nhắn từ server qua WebSocket."""
         while True:
             try:
-                if not self.ws:
-                    logger.warning(
-                        "WebSocket not connected. Attempting to reconnect..."
-                    )
-                    self.connect()
-
-                data = self.ws.recv()
-                # self.ws.ping("ping")
-                # self.ws.pong("pong")
-                # if isinstance(data, bytes):  # Nếu là ping (binary frame)
-                #     print("Received ping, sending pong...")
-                #     self.ws.send(data)  # Gửi lại data như pong
-                if data:
-                    logger.info(f"Received: {data}")
-
-                    self._handle_msg(data)
-                sleep(0.01)
-            except ConnectionClosed:
+                if self.ws:
+                    try:
+                        logger.info("Listening to server...")
+                        data = self.ws.recv()
+                        if data:
+                            logger.info(f"Received: {data}")
+                            self._handle_msg(data)
+                    except TimeoutError:
+                        logging.warning("Timeout: No response from server")
+                    except ConnectionClosed:
+                        raise
+                # sleep(0.01)
+            except (ConnectionClosed, ConnectionError, OSError):
                 logger.warning("WebSocket connection closed. Reconnecting...")
-                self.ws = None  # Đặt lại kết nối
-                self.connect()
+                # self.ws = None  # Đặt lại kết nối
+
             except Exception as e:
                 logger.error(f"Unexpected error: {e}. Reconnecting...")
-                self.ws = None  # Đặt lại kết nối
-                self.connect()
+                # self.ws = None  # Đặt lại kết nối
 
     def run(self):
         t = Thread(target=self.send_to_server)
+        t2 = Thread(target=self.check_connection)
         t.start()
+        t2.start()
         self.listen_to_server()
         # while True:
         # self.send_forward_distance()
@@ -465,7 +496,7 @@ class WebSocketServer(Thread):
 
             if res.operation == OperationEnum.command:
                 try:
-                    logger.info(f"Received command: {res.data}")
+                    logger.info(f"Received command: {res}")
                     command_manager.add_command(res, self.response_command)
                 except Exception as e:
                     self._send_error(websocket, f"Invalid command: {str(e)}")

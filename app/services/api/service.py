@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, ORJSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import raybot_config
+from app.config import config_service
 from app.services.api.config import fastapi_config
 from app.services.api.routes import router
 from app.services.base import BaseService
@@ -35,19 +35,19 @@ class APIService(BaseService, Thread):
 
         self.app.include_router(router, prefix="/api")
         # Serve the frontend
-        self.app.mount(
-            "/assets", StaticFiles(directory="app/dist/assets"), name="assets"
-        )
+        # self.app.mount(
+        #     "/assets", StaticFiles(directory="app/dist/assets"), name="assets"
+        # )
 
-        @self.app.get("/{catchall:path}")
-        def serve_frontend(catchall: str):
-            return FileResponse("app/dist/index.html")
+        # @self.app.get("/{catchall:path}")
+        # def serve_frontend(catchall: str):
+        #     return FileResponse("app/dist/index.html")
 
     def run(self) -> None:
         uvicorn.run(
             self.app,
-            host=raybot_config["API_HOST"],
-            port=raybot_config["API_PORT"],
+            host=config_service.get_config(section="raybot", key="API_HOST"),
+            port=config_service.get_config(section="raybot", key="API_PORT"),
             log_config=None,
             # ssl_keyfile="app/self-signed.key",
             # ssl_certfile="app/self-signed.crt",

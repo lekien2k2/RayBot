@@ -7,49 +7,59 @@ import re
 
 import serial
 
-from app.config import serial_config
+# from app.config import serial_config
 
 # from app.services.qr_service.service import qr_code_data
+from app.schemas import SerialSchemas
 from app.services.raybot.schemas import (
     CommandActionEnum,
     CommandEnum,
     DataCommandEnum,
     RayBotInfoSchema,
+    RaybotConfigSchema,
     ReciveDataSchema,
 )
 from app.services.websockets.schemas import CommandReciveSchema
 
-logger = logging.getLogger(__name__)
 from app.services.commands.schemas import CommandStatusEnum
 from app.services.commands.service import command_manager
+from app.config import config_service
+
+logger = logging.getLogger(__name__)
 
 
 class RaybotService(Thread):
-    def __init__(self, serial_port, baudrate, timeout):
+    def __init__(self, serial_config: SerialSchemas, raybot_config: RaybotConfigSchema):
         Thread.__init__(self)
         self.daemon = True
+        # self.serial1 = config_service.get_config(section="Robot-config")
+        # logger.info(f"{self.serial1}")
         self.serial = serial.Serial(
-            port=serial_port, baudrate=baudrate, timeout=timeout
+            port=serial_config.port,
+            baudrate=serial_config.baudrate,
+            timeout=serial_config.timeout,
         )
         self.raybot_info = RayBotInfoSchema(
-            max_distance_lift=1300,
+            max_distance_lift=raybot_config.max_distance_lift,
+            min_distance_move=raybot_config.min_distance_move,
+            min_distance_lift=raybot_config.min_distance_lift,
+            max_pwm_movement=raybot_config.max_pwm_movement,
+            max_pwm_lift=raybot_config.max_pwm_lift,
+            home_location=raybot_config.home_location,
             current_cmd="",
             forward_distance=0,
             backward_distance=0,
             lift_distance=0,
             weight=0,
+            movement_pwm=0,
             battery=0,
             movement_motor=0,
-            movement_pwm=0,
-            min_distance_move=0,
-            min_distance_lift=2000,
             lift_motor=0,
             lift_pwm=0,
             safety=False,
             door_state=0,
             qr_location="",
             qr_door="",
-            home_location="table_1",
         )
         command_manager.add_callback_on_new(self.execute_command)
         self.command_thread: Optional[threading.Thread] = None
@@ -88,12 +98,30 @@ class RaybotService(Thread):
         try:
             if data:
                 logger.info(f"Send command: {command} with data: {data}")
-                self.send(f"{command}:{data}\n".encode())
+                self.send(f"CMD:{command}\n".encode())
+                self.send(f"DATA:{data}\n".encode())
                 self.raybot_info.current_cmd = command  # TEST
             else:
                 logger.info(f"Send command: {command}")
-                self.send(f"{command}\n".encode())
+                self.send(f"CMD:{command}\n".encode())
                 self.raybot_info.current_cmd = command
+            sleep(0.05)  # Đảm bảo chỉ mình nó gửi trong thời gian này
+            return True
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            return False
+        finally:
+            self.serial_lock.release()  # Nhả khóa sau khi xong
+
+    def send_data(self, data: dict) -> bool:
+        # Thử lấy khóa
+        if not self.serial_lock.acquire(timeout=5):  # Timeout để tránh deadlock
+            logger.error("Unable to acquire lock, another thread is sending.")
+            return False
+
+        try:
+            self.send(f"DATA:{data}\n".encode())
+            logger.info(f"Sent data: {data}")
             sleep(0.05)  # Đảm bảo chỉ mình nó gửi trong thời gian này
             return True
         except Exception as e:
@@ -126,6 +154,8 @@ class RaybotService(Thread):
                 for key, value in data.dict().items():
                     if value is not None:
                         setattr(self.raybot_info, key, value)
+                        if key == "max_pwm_movement":
+                            logger.info(f"Max pwm movement: {value}")
 
             else:
                 # logger.info(f"Recive data: {data}")
@@ -155,7 +185,7 @@ class RaybotService(Thread):
 
     def handle_move_forward(self, id, data):
         logger.warning("Move forward")
-        if self.raybot_info.lift_distance < self.raybot_info.min_distance_lift:
+        if self.raybot_info.lift_distance > self.raybot_info.min_distance_lift:
             self.send_command(CommandEnum.lift_box)
             count_send_error = 0
             while (
@@ -172,7 +202,7 @@ class RaybotService(Thread):
                     count_send_error += 1
                 sleep(0.01)
             while (
-                self.raybot_info.lift_distance < self.raybot_info.min_distance_lift
+                self.raybot_info.lift_distance > self.raybot_info.min_distance_lift
                 and not self.stop_event.is_set()
             ):
                 sleep(0.01)
@@ -231,28 +261,28 @@ class RaybotService(Thread):
             )
             return
         # open here went to production
-        # if self.raybot_info.lift_distance < self.raybot_info.min_distance_lift:
-        #     self.send_command(CommandEnum.lift_box)
-        #     count_send_error = 0
-        #     while (
-        #         self.raybot_info.current_cmd != CommandEnum.lift_box
-        #         and not self.stop_event.is_set()
-        #     ):
-        #         if count_send_error > 3:
-        #             command_manager.update_status(
-        #                 id, CommandStatusEnum.FAILED, {"reason": "Send command error"}
-        #             )
-        #             self.send_command(CommandEnum.stop)
-        #             return
-        #         if not self.send_command(CommandEnum.lift_box):
-        #             count_send_error += 1
-        #         sleep(0.01)
-        #     while (
-        #         self.raybot_info.lift_distance < self.raybot_info.min_distance_lift
-        #         and not self.stop_event.is_set()
-        #     ):
-        #         sleep(0.01)
-        #     self.send_command(CommandEnum.stop)
+        if self.raybot_info.lift_distance > self.raybot_info.min_distance_lift:
+            self.send_command(CommandEnum.lift_box)
+            count_send_error = 0
+            while (
+                self.raybot_info.current_cmd != CommandEnum.lift_box
+                and not self.stop_event.is_set()
+            ):
+                if count_send_error > 3:
+                    command_manager.update_status(
+                        id, CommandStatusEnum.FAILED, {"reason": "Send command error"}
+                    )
+                    self.send_command(CommandEnum.stop)
+                    return
+                if not self.send_command(CommandEnum.lift_box):
+                    count_send_error += 1
+                sleep(0.01)
+            while (
+                self.raybot_info.lift_distance > self.raybot_info.min_distance_lift
+                and not self.stop_event.is_set()
+            ):
+                sleep(0.01)
+            self.send_command(CommandEnum.stop)
         command_manager.update_status(id, CommandStatusEnum.IN_PROGRESS)
         self.send_command(direction)
         while not self.stop_event.is_set():
@@ -289,7 +319,7 @@ class RaybotService(Thread):
 
     def handle_move_backward(self, id, data):
         logger.warning("Move backward")
-        if self.raybot_info.lift_distance < self.raybot_info.min_distance_lift:
+        if self.raybot_info.lift_distance > self.raybot_info.min_distance_lift:
             self.send_command(CommandEnum.lift_box)
             count_send_error = 0
             while (
@@ -306,7 +336,7 @@ class RaybotService(Thread):
                     count_send_error += 1
                 sleep(0.01)
             while (
-                self.raybot_info.lift_distance < self.raybot_info.min_distance_lift
+                self.raybot_info.lift_distance > self.raybot_info.min_distance_lift
                 and not self.stop_event.is_set()
             ):
                 sleep(0.01)
@@ -343,6 +373,9 @@ class RaybotService(Thread):
             sleep(0.01)
         logger.warning("Stop")
 
+    def update_config_arduino(self):
+        self.send_data(self.raybot_info.dict())
+
     def handle_drop_box(self, id, data):
         while (
             not self.send_command(CommandEnum.stop)
@@ -357,6 +390,9 @@ class RaybotService(Thread):
             distance = data.get("distance")
         if not distance:
             distance = self.raybot_info.max_distance_lift
+        else:
+            if distance > self.raybot_info.max_distance_lift:
+                distance = self.raybot_info.max_distance_lift
         logger.info(f"Drop box at distance: {distance}")
         command_manager.update_status(id, CommandStatusEnum.IN_PROGRESS)
         self.send_command(CommandEnum.drop_box)
@@ -378,14 +414,14 @@ class RaybotService(Thread):
                     self.send_command(CommandEnum.stop)
                     return
             # logger.info(f"Drop distance: {self.raybot_info.lift_distance}")
-            if self.raybot_info.lift_distance <= distance:
+            if self.raybot_info.lift_distance > distance:
                 self.send_command(CommandEnum.stop)
                 # sleep(0.01)
                 command_manager.update_status(id, CommandStatusEnum.SUCCESS, data)
                 break
             sleep(0.01)
             # comment here went to production
-            break
+            # break
         command_manager.update_status(id, CommandStatusEnum.SUCCESS, data)
         logger.warning("Stop")
 
@@ -400,7 +436,10 @@ class RaybotService(Thread):
         distance = None
         if data:
             distance = data.get("distance")
-        if not distance:
+        if distance:
+            if distance < self.raybot_info.min_distance_lift:
+                distance = self.raybot_info.min_distance_lift
+        else:
             distance = self.raybot_info.min_distance_lift
         command_manager.update_status(id, CommandStatusEnum.IN_PROGRESS)
         self.send_command(CommandEnum.lift_box)
@@ -423,14 +462,14 @@ class RaybotService(Thread):
                     self.send_command(CommandEnum.stop)
                     break
 
-            if self.raybot_info.lift_distance >= distance:
+            if self.raybot_info.lift_distance < distance:
                 self.send_command(CommandEnum.stop)
                 # sleep(0.01)
                 command_manager.update_status(id, CommandStatusEnum.SUCCESS, data)
                 break
             sleep(0.01)
             # comment here went to production
-            break
+            # break
         command_manager.update_status(id, CommandStatusEnum.SUCCESS, data)
         logger.warning("Stop")
 
@@ -499,16 +538,17 @@ class RaybotService(Thread):
             qr_code = data.get("qr_code")
         logger.info(f"QR code: {qr_code}")
         logger.info(f"QR code: {self.raybot_info.qr_door}")
-        sleep(5)
-        command_manager.update_status(
-            id, CommandStatusEnum.SUCCESS, {"qr_code": qr_code}
-        )
+        # sleep(5)
+        # command_manager.update_status(
+        #     id, CommandStatusEnum.SUCCESS, {"qr_code": qr_code}
+        # )
         if qr_code:
             while not self.stop_event.is_set():
                 logger.info(f"QR code: {qr_code}")
                 logger.info(f"QR code: {self.raybot_info.qr_door}")
                 if self.raybot_info.qr_door == qr_code:
                     command_manager.update_status(id, CommandStatusEnum.SUCCESS, data)
+                    self.raybot_info.qr_door = ""
                     break
                 sleep(0.01)
         else:
@@ -671,9 +711,8 @@ class RaybotService(Thread):
 
 
 raybot = RaybotService(
-    serial_port=serial_config.port,
-    baudrate=serial_config.baudrate,
-    timeout=serial_config.timeout,
+    serial_config=SerialSchemas(**config_service.get_config(section="serial")),
+    raybot_config=RaybotConfigSchema(**config_service.get_config(section="raybot")),
 )
 
 # raybot.send_command(CommandEnum.forward, DataCommandEnum.pwm)

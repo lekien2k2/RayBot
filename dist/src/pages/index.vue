@@ -5,9 +5,9 @@
     <p>Status: {{ status }}</p>
     <p>{{ res.qr_location }}</p>
     <v-row>
-      <v-col cols="5"
+      <v-col cols="12" md="5"
         ><v-expansion-panels>
-          <v-expansion-panel title="INFO" class="ma-2">
+          <v-expansion-panel title="INFO" class="ma-1">
             <v-expansion-panel-text>
               <v-card>
                 <v-card-text>
@@ -19,16 +19,14 @@
                       <p>Log: {{ res.log }}</p>
                       <p>Weight Sensor: {{ res.weight_sensor }}</p>
                       <p>
-                        Forward Distance Sensor:
+                        Forward Distance:
                         {{ res.forward_distance_sensor }}
                       </p>
                       <p>
-                        Backward Distance Sensor:
+                        Backward Distance:
                         {{ res.backward_distance_sensor }}
                       </p>
-                      <p>
-                        Lift Distance Sensor: {{ res.lift_distance_sensor }}
-                      </p>
+                      <p>Lift Distance: {{ res.lift_distance_sensor }}</p>
                     </v-col>
                     <v-col
                       ><p>Movement Motor: {{ res.movement_motor }}</p>
@@ -48,7 +46,7 @@
           </v-expansion-panel>
         </v-expansion-panels>
         <v-expansion-panels>
-          <v-expansion-panel title="Control">
+          <v-expansion-panel title="Control" class="ma-1">
             <v-expansion-panel-text>
               <v-card>
                 <v-card-title>Control</v-card-title>
@@ -58,7 +56,7 @@
                     :key="index"
                     @click="send(JSON.stringify(command))"
                     color="warning"
-                    class="ma-1"
+                    class="ma-2"
                   >
                     {{ command.type }}
                   </v-btn>
@@ -70,7 +68,7 @@
       >
       <v-col
         ><v-expansion-panels>
-          <v-expansion-panel title="COMMAND" class="ma-2">
+          <v-expansion-panel title="COMMAND" class="ma-1">
             <v-expansion-panel-text>
               <v-card>
                 <v-card-text>
@@ -90,7 +88,7 @@
           </v-expansion-panel>
         </v-expansion-panels>
         <v-expansion-panels>
-          <v-expansion-panel title="Task">
+          <v-expansion-panel title="Task" class="ma-1">
             <v-expansion-panel-text>
               <v-card>
                 <v-card-title></v-card-title>
@@ -101,8 +99,28 @@
               </v-card>
             </v-expansion-panel-text>
           </v-expansion-panel>
-        </v-expansion-panels></v-col
-      >
+        </v-expansion-panels>
+        <v-expansion-panels>
+          <v-expansion-panel title="Camera" class="ma-1">
+            <v-expansion-panel-text>
+              <v-card>
+                <v-card-title></v-card-title>
+                <v-card-text>
+                  <!-- <v-img
+                    src="http://localhost:80/api/camera/video_feed?mode=camQrLocation"
+                  /> -->
+                  <v-img
+                    src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrLocation"
+                  />
+                  <v-img
+                    src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrCheckBox"
+                  />
+                </v-card-text>
+              </v-card>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </v-col>
     </v-row>
   </div>
 </template>
@@ -120,8 +138,8 @@ const res = ref<any>({});
 
 const { addNotification } = useNotificationStore();
 const { status, data, send, open, close } = useWebSocket(
-  // "ws://192.168.1.232:8765",
-  "ws://localhost:8765",
+  "ws://192.168.1.232:8765",
+  // "ws://localhost:8765",
   {
     autoReconnect: true,
     onConnected: () => {
@@ -196,11 +214,18 @@ const ctr_cmds = {
     data: {},
   },
 };
-const commands = ref([]);
-
+const commands = ref<any[]>([]);
+const latets_command = ref<any>({});
 watch(data, (newData: string) => {
   let respone = JSON.parse(newData);
-  commands.value.push(respone);
+  if (
+    respone.topic === "task" &&
+    JSON.stringify(respone) !== JSON.stringify(latets_command.value)
+  ) {
+    latets_command.value = respone;
+    commands.value.push(respone);
+  }
+
   if (commands.value.length > 10) {
     commands.value.shift();
   }

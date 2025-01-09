@@ -1,0 +1,61 @@
+2025-01-08 08:33:59,935 - ERROR - Failed to connect: [WinError 10061] No connection could be made because the target machine actively refused it
+2025-01-08 08:33:59,936 - WARNING - Connection lost. Reconnection attempt 1/5 in 5 seconds...
+2025-01-08 08:34:09,003 - ERROR - Failed to connect: [WinError 10061] No connection could be made because the target machine actively refused it
+2025-01-08 08:34:09,003 - WARNING - Connection lost. Reconnection attempt 2/5 in 5 seconds...
+2025-01-08 08:34:11,136 - INFO - 
+Shutdown requested by user...
+2025-01-08 08:34:11,136 - INFO - Connection Statistics:
+2025-01-08 08:34:11,137 - INFO - Total reconnection attempts: 2
+2025-01-08 08:34:11,138 - INFO - Total connection time: 0.00 seconds
+2025-01-08 08:34:11,138 - INFO - Connection History:
+2025-01-08 08:34:11,138 - INFO - Client shutdown complete
+2025-01-08 08:35:02,663 - ERROR - Failed to connect: server rejected WebSocket connection: HTTP 404
+2025-01-08 08:35:02,663 - WARNING - Connection lost. Reconnection attempt 1/5 in 5 seconds...
+2025-01-08 08:35:07,686 - ERROR - Failed to connect: server rejected WebSocket connection: HTTP 404
+2025-01-08 08:35:07,686 - WARNING - Connection lost. Reconnection attempt 2/5 in 5 seconds...
+2025-01-08 08:35:08,460 - INFO - 
+Shutdown requested by user...
+2025-01-08 08:35:08,461 - INFO - Connection Statistics:
+2025-01-08 08:35:08,461 - INFO - Total reconnection attempts: 2
+2025-01-08 08:35:08,461 - INFO - Total connection time: 0.00 seconds
+2025-01-08 08:35:08,461 - INFO - Connection History:
+2025-01-08 08:35:08,462 - INFO - Client shutdown complete
+2025-01-08 08:35:21,949 - INFO - Connected to server at ws://192.168.1.173:8082/robots/ws-raybot with id d6db2969-c7db-48c9-8e90-5f14a7fe209b
+2025-01-08 10:09:52,609 - INFO - Connection session lasted: 5670.66 seconds
+2025-01-08 10:09:52,610 - WARNING - Connection lost. Reconnection attempt 1/5 in 5 seconds...
+2025-01-08 10:10:07,615 - ERROR - Failed to connect: timed out
+2025-01-08 10:10:07,615 - INFO - Connection session lasted: 5685.67 seconds
+2025-01-08 10:10:07,615 - WARNING - Connection lost. Reconnection attempt 2/5 in 5 seconds...
+2025-01-08 10:10:22,617 - ERROR - Failed to connect: timed out
+2025-01-08 10:10:22,618 - INFO - Connection session lasted: 5700.67 seconds
+2025-01-08 10:10:22,618 - WARNING - Connection lost. Reconnection attempt 3/5 in 5 seconds...
+2025-01-08 10:10:37,627 - ERROR - Failed to connect: timed out
+2025-01-08 10:10:37,628 - INFO - Connection session lasted: 5715.68 seconds
+2025-01-08 10:10:37,628 - WARNING - Connection lost. Reconnection attempt 4/5 in 5 seconds...
+2025-01-08 10:10:52,643 - ERROR - Failed to connect: timed out
+2025-01-08 10:10:52,643 - INFO - Connection session lasted: 5730.69 seconds
+2025-01-08 10:10:52,643 - ERROR - Max reconnection attempts (5) reached. Shutting down.
+2025-01-08 10:10:52,644 - INFO - Connection session lasted: 5730.69 seconds
+2025-01-08 10:10:52,644 - INFO - Connection Statistics:
+2025-01-08 10:10:52,644 - INFO - Total reconnection attempts: 5
+2025-01-08 10:10:52,644 - INFO - Total connection time: 34234.06 seconds
+2025-01-08 10:10:52,645 - INFO - Connection History:
+2025-01-08 10:10:52,645 - INFO - Session 1:
+2025-01-08 10:10:52,645 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,645 - INFO -   Duration: 5670.66 seconds
+2025-01-08 10:10:52,645 - INFO - Session 2:
+2025-01-08 10:10:52,645 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,645 - INFO -   Duration: 5685.67 seconds
+2025-01-08 10:10:52,645 - INFO - Session 3:
+2025-01-08 10:10:52,647 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,647 - INFO -   Duration: 5700.67 seconds
+2025-01-08 10:10:52,647 - INFO - Session 4:
+2025-01-08 10:10:52,647 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,647 - INFO -   Duration: 5715.68 seconds
+2025-01-08 10:10:52,647 - INFO - Session 5:
+2025-01-08 10:10:52,648 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,648 - INFO -   Duration: 5730.69 seconds
+2025-01-08 10:10:52,648 - INFO - Session 6:
+2025-01-08 10:10:52,648 - INFO -   Start time: 2025-01-08 08:35:21.949972
+2025-01-08 10:10:52,648 - INFO -   Duration: 5730.69 seconds
+2025-01-08 10:10:52,649 - INFO - Client shutdown complete
