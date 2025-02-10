@@ -56,9 +56,6 @@
         <v-col cols="6">
           <v-text-field
             v-model="firmwareConfig.max_pwm_movement"
-            :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-            :type="showPassword ? 'text' : 'password'"
-            @click:append-inner="showPassword = !showPassword"
             label="Max PWM Movement"
             variant="outlined"
             dense

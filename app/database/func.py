@@ -48,3 +48,4 @@ def check_db():
             db.commit()
 
     logger.info(f"Database check took {time() - start_time} seconds")
+

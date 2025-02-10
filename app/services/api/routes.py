@@ -8,7 +8,9 @@ from fastapi import APIRouter
 # from app.services.api.data.endpoint import router as data_router
 # from app.services.api.device.endpoint import router as device_router
 # from app.services.api.device_template.endpoint import router as device_template_router
-# from app.services.api.log.endpoint import router as log_router
+from app.services.api.logs.endpoint import router as log_router
+from app.services.api.command.endpoint import router as command_router
+
 # from app.services.api.system.endpoint import router as system_router
 # from app.services.api.user.endpoint import router as user_router
 # from app.services.api.warning_data_logs.endpoint import (
@@ -39,9 +41,7 @@ router = APIRouter()
 #     tags=["device_templates"],
 #     dependencies=[RequiredAuth],
 # )
-# router.include_router(
-#     log_router, prefix="/logs", tags=["logs"], dependencies=[RequiredAuth]
-# )
+router.include_router(log_router, prefix="/logs", tags=["logs"])
 # router.include_router(
 #     configuration_router,
 #     prefix="/configuration",
@@ -79,4 +79,10 @@ router.include_router(
     camera_router,
     prefix="/camera",
     tags=["camera"],
+)
+
+router.include_router(
+    command_router,
+    prefix="/command",
+    tags=["command"],
 )

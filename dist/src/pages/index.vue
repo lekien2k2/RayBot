@@ -54,7 +54,10 @@
                   <v-btn
                     v-for="(command, index) in ctr_cmds"
                     :key="index"
-                    @click="send(JSON.stringify(command))"
+                    @click="
+                      command.id = uuid.v4();
+                      send(JSON.stringify(command));
+                    "
                     color="warning"
                     class="ma-2"
                   >
@@ -78,7 +81,28 @@
                         v-for="(command, index) in commands"
                         :key="index"
                       >
-                        {{ command }}
+                        <v-row>
+                          <v-col>
+                            <v-list-item-title>
+                              {{
+                                command.updated_at
+                                  ? convertTime(command.updated_at)
+                                  : convertTime(command.created_at)
+                              }}
+                            </v-list-item-title>
+                          </v-col>
+                          <v-col>
+                            <v-list-item-title>
+                              {{ command.type }}
+                            </v-list-item-title>
+                          </v-col>
+                          <v-col>
+                            <v-list-item-title>
+                              {{ command.status }}
+                            </v-list-item-title>
+                          </v-col>
+                        </v-row>
+                        <v-divider class="mt-2"></v-divider>
                       </v-list-item>
                     </v-list-item-group>
                   </v-list>
@@ -110,10 +134,10 @@
                     src="http://localhost:80/api/camera/video_feed?mode=camQrLocation"
                   /> -->
                   <v-img
-                    src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrLocation"
+                    src="http://192.168.1.195:8000/api/camera/video_feed?mode=camQrLocation"
                   />
                   <v-img
-                    src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrCheckBox"
+                    src="http://192.168.1.195:8000/api/camera/video_feed?mode=camQrCheckBox"
                   />
                 </v-card-text>
               </v-card>
@@ -128,7 +152,9 @@
 <script lang="ts" setup>
 import { useWebSocket } from "@vueuse/core";
 import { useNotificationStore } from "@/stores/notificationStore";
-
+import { uuid } from "vue-uuid";
+import Commandervice from "@/services/command";
+import { convertTime } from "@/utils/time";
 export interface DataRecieved {
   topic: string;
   data: string;
@@ -138,7 +164,7 @@ const res = ref<any>({});
 
 const { addNotification } = useNotificationStore();
 const { status, data, send, open, close } = useWebSocket(
-  "ws://192.168.1.232:8765",
+  "ws://192.168.1.195:8765",
   // "ws://localhost:8765",
   {
     autoReconnect: true,
@@ -218,13 +244,13 @@ const commands = ref<any[]>([]);
 const latets_command = ref<any>({});
 watch(data, (newData: string) => {
   let respone = JSON.parse(newData);
-  if (
-    respone.topic === "task" &&
-    JSON.stringify(respone) !== JSON.stringify(latets_command.value)
-  ) {
-    latets_command.value = respone;
-    commands.value.push(respone);
-  }
+  // if (
+  //   respone.topic === "task" &&
+  //   JSON.stringify(respone) !== JSON.stringify(latets_command.value)
+  // ) {
+  //   latets_command.value = respone;
+  //   commands.value.push(respone);
+  // }
 
   if (commands.value.length > 10) {
     commands.value.shift();
@@ -253,4 +279,9 @@ function register_topics() {
     send(JSON.stringify(command));
   }
 }
+setInterval(async () => {
+  let command = await Commandervice.get();
+  console.log(commands);
+  commands.value = command.data;
+}, 1000);
 </script>

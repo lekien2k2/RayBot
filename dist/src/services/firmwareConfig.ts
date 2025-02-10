@@ -6,7 +6,7 @@ import type {
 // import { SortOrder } from "@/types/data";
 // import { ResponseWithMetaData } from "@/types/metaData";
 
-export default class LogService {
+export default class FirmwareService {
   static get entity() {
     return "config";
   }

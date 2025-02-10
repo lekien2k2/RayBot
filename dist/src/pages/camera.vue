@@ -9,7 +9,7 @@
           <v-card-title class="text-center">RayCamera</v-card-title>
           <v-card-text class="mx-4">
             <v-img
-              src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrLocation"
+              src="http://192.168.1.179:8000/api/camera/video_feed?mode=camQrLocation"
             />
           </v-card-text>
         </v-card>
@@ -19,7 +19,7 @@
           <v-card-title class="text-center">BoxCamera</v-card-title>
           <v-card-text class="mx-4">
             <v-img
-              src="http://192.168.1.232:8000/api/camera/video_feed?mode=camQrCheckBox"
+              src="http://192.168.1.179:8000/api/camera/video_feed?mode=camQrCheckBox"
             />
           </v-card-text>
         </v-card>

@@ -24,6 +24,7 @@ from app.services.websockets.schemas import CommandReciveSchema
 from app.services.commands.schemas import CommandStatusEnum
 from app.services.commands.service import command_manager
 from app.config import config_service
+from app.services.audio import speak
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ class RaybotService(Thread):
             "scan_location": self.handle_scan_location,
             "stop": self.handle_stop,
             "wait_get_item": self.handle_wait_get_item,
+            "speak": self.handle_speak,
         }
 
     def send(self, data):
@@ -154,7 +156,7 @@ class RaybotService(Thread):
                 for key, value in data.dict().items():
                     if value is not None:
                         setattr(self.raybot_info, key, value)
-                        if key == "max_pwm_movement":
+                        if key == "min_distance_move":
                             logger.info(f"Max pwm movement: {value}")
 
             else:
@@ -530,6 +532,7 @@ class RaybotService(Thread):
         command_manager.update_status(id, CommandStatusEnum.SUCCESS)
 
     def handle_check_qr(self, id, data):
+        self.raybot_info.qr_door = ""
         command_manager.update_status(id, CommandStatusEnum.IN_PROGRESS)
         self.send_command(CommandEnum.stop)
         logger.warning("Scan QR code")
@@ -556,6 +559,21 @@ class RaybotService(Thread):
                 id, CommandStatusEnum.FAILED, {"reason": "Command data is invalid"}
             )
         logger.warning("QR code found")
+
+    def handle_speak(self, id, data):
+        logger.warning("Speak text")
+        text = None
+        if data:
+            text = data.get("text")
+        if not text:
+            command_manager.update_status(
+                id, CommandStatusEnum.FAILED, {"reason": "Command data is invalid"}
+            )
+            return
+        command_manager.update_status(id, CommandStatusEnum.IN_PROGRESS)
+        speak(text)
+        command_manager.update_status(id, CommandStatusEnum.SUCCESS)
+        logger.warning("Speak text")
 
     def handle_scan_location(self, id, data):
         if self.raybot_info.lift_distance > self.raybot_info.min_distance_lift:
@@ -688,6 +706,15 @@ class RaybotService(Thread):
 
     def run(self):
         logger.info("Raybot service started")
+        default = {
+            "max_pwm_movement": self.raybot_info.max_pwm_movement,
+            "max_pwm_lift": self.raybot_info.max_pwm_lift,
+            "home_location": self.raybot_info.home_location,
+            "max_distance_lift": self.raybot_info.max_distance_lift,
+            "min_distance_move": self.raybot_info.min_distance_move,
+            "min_distance_lift": self.raybot_info.min_distance_lift,
+        }
+        self.send_data(default)
         while True:
             try:
                 if self.serial.in_waiting > 0:

@@ -1,3 +1,4 @@
+from queue import Queue
 import time
 
 import cv2
@@ -64,49 +65,63 @@ class CameraManager:
         self.qr_box_flag = False
         self.frames = {}  # Store frames for each mode
         self.camera_threads = {}  # Keep track of camera threads
+        self.frame_queues = {"camQrLocation": Queue(), "camQrCheckBox": Queue()}
 
     def start_camera(self, camera_id, mode):
         camera = cv2.VideoCapture(camera_id)
         self.status[mode]["state"] = "running"
-        time_check = time.time()
+
         while True:
             success, frame = camera.read()
             if not success:
-                time.sleep(0.1)
                 print(camera_id, mode, "is not running")
+                time.sleep(0.1)
                 continue
 
-            # Resize and save the frame
-            frame = cv2.resize(frame, self.config["resolution"])
+            # Push frame to queue for processing
+            if not self.frame_queues[mode].full():
+                self.frame_queues[mode].put(frame)
+
+            # Save the latest frame for video streaming
             self.frames[mode] = frame
 
+        camera.release()
+
+    def process_qr(self, mode):
+        time_check = time.time()
+        while True:
+            if self.frame_queues[mode].empty():
+                time.sleep(0.05)
+                continue
+
+            frame = self.frame_queues[mode].get()
+            frame_resized = cv2.resize(frame, self.config["resolution"])
+
+            # Convert to grayscale
+            gray_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
+
             # QR Code decoding logic
-            decoded_objects = decode(frame, symbols=[ZBarSymbol.QRCODE])
+            decoded_objects = decode(gray_frame, symbols=[ZBarSymbol.QRCODE])
             for obj in decoded_objects:
                 qr_text = obj.data.decode("utf-8")
                 if mode == "camQrLocation" and qr_text != self.status[mode]["last_qr"]:
                     self.status[mode]["last_qr"] = qr_text
-                    print(f"New QR code detected: {qr_text}")
                     self.qr_data[mode] = qr_text
                     self.qr_flag = True
+                    print(f"New QR code detected: {qr_text}")
 
-                elif (
-                    mode == "camQrCheckBox"
-                    and time.time() - time_check > 2
-                    or qr_text != self.status[mode]["last_qr"]
-                ):
+                elif mode == "camQrCheckBox" and time.time() - time_check > 2:
                     time_check = time.time()
                     self.qr_box_flag = True
                     self.status[mode]["last_qr"] = qr_text
-                    print(f"New QR code detected: {qr_text}")
                     self.qr_data[mode] = qr_text
-        camera.release()
+                    print(f"New QR code detected: {qr_text}")
 
     def generate_video_stream(self, mode):
         while True:
             frame = self.frames.get(mode)
             if frame is None:
-                time.sleep(0.1)
+                time.sleep(0.05)
                 continue
 
             _, buffer = cv2.imencode(".jpg", frame)
@@ -117,15 +132,22 @@ class CameraManager:
 
     def start_background_camera(self, mode):
         camera_id = self.config.get(mode)
-        if not camera_id and camera_id != 0:
+        if camera_id is None:
             return
 
         if mode not in self.camera_threads:
-            thread = threading.Thread(
+            # Start camera thread
+            cam_thread = threading.Thread(
                 target=self.start_camera, args=(camera_id, mode), daemon=True
             )
-            self.camera_threads[mode] = thread
-            thread.start()
+            self.camera_threads[mode] = cam_thread
+            cam_thread.start()
+
+            # Start QR processing thread
+            qr_thread = threading.Thread(
+                target=self.process_qr, args=(mode,), daemon=True
+            )
+            qr_thread.start()
 
 
 config = Config().config
@@ -133,7 +155,7 @@ config = Config().config
 camera_manager = CameraManager(config)
 
 camera_manager.start_background_camera("camQrLocation")
-camera_manager.start_background_camera("camQrCheckBox")
+# camera_manager.start_background_camera("camQrCheckBox")
 
 
 # class QRApp:

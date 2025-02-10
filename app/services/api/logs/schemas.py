@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, Field
 
 
@@ -6,7 +7,7 @@ class CreateLogSchema(BaseModel):
     action: str = Field(..., description="Action")
     time: str = Field(..., description="Time")
     status: str = Field(..., description="Status")
-    message: str = Field(..., description="Message")
+    message: Optional[str] = Field(None, description="Message")
 
 
 class LogSchema(BaseModel):

@@ -4,7 +4,7 @@
       <v-col>
         <v-data-table :headers="headers" :items="network" item-key="id">
           <template v-slot:top>
-            <v-toolbar flat density="compact" color="grey-lighten-5">
+            <v-toolbar flat density="compact">
               <v-toolbar-title class="font-weight-bold text-h5"
                 >Interfaces</v-toolbar-title
               >

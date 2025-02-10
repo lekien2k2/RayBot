@@ -125,8 +125,9 @@ class SendSchema(BaseModel):
     op: OperationEnum
     id: Optional[str] = None
     topic: Optional[TopicEnum] = None
+    status: Optional[StatusMsgEnum] = None
     data: Optional[dict] = None
-
+    
 
 class CommandReciveSchema(BaseModel):
     operation: Optional[OperationEnum] = Field(None, alias="op")

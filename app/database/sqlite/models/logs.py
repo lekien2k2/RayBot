@@ -9,4 +9,4 @@ class Logs(BaseModel):
     action = Column(String(), nullable=False)
     time = Column(String(50), nullable=False)
     status = Column(String(), nullable=False)
-    message = Column(String(), nullable=False)
+    message = Column(String())

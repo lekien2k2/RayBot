@@ -1,23 +1,19 @@
+import asyncio
+from enum import Enum
+import threading
+from threading import Thread, Lock
+import time
+from time import sleep
+from app.services.raybot.service import raybot
 import json
 import logging
-import threading
-import time
-from queue import Queue
-from threading import Lock, Thread
-from time import sleep
-
-from enum import Enum
 from typing import Any, Dict, Set
-import uuid
-
 import websockets
-
-from websockets.exceptions import ConnectionClosed, WebSocketException
-from websockets.sync.client import connect
 from websockets.sync.server import serve
-
+from app.config import server_config
+from websockets.exceptions import ConnectionClosed, WebSocketException
+from queue import Queue
 from app.services.commands.service import command_manager
-from app.services.raybot.service import raybot
 from app.services.websockets.schemas import (
     BackwardDistanceSensorMsgType,
     BatteryMsgType,
@@ -37,127 +33,66 @@ from app.services.websockets.schemas import (
 logger = logging.getLogger(__name__)
 
 
-class WebSocketClient(Thread):
-    send_msg_queue: Queue[SendSchema] = Queue()
+class AsyncWebSocketClient:
+    send_msg_queue: Queue = Queue()
 
     def __init__(self, protocol, host, port, path, timeout, device_id):
-        Thread.__init__(self)
-        self.daemon = True
         self.url = f"{protocol}{host}:{port}{path}"
         self.timeout = timeout
         self.device_id = device_id
         self.ws = None
-        self.lock = Lock()
 
-    def connect(self):
-        with self.lock:
+    async def connect(self):
+        while True:
             try:
-                self.ws = connect(self.url, close_timeout=2)
+                self.ws = await websockets.connect(self.url)
                 logger.info("Connected")
+                return
             except Exception as e:
-                logger.error(f"Error: {e}")
+                logger.error(f"Connection error: {e}")
+                await asyncio.sleep(3)  # Retry after delay
 
-    def send(self, op, topic=None, id=None, data=None):
+    async def send(self, op, topic=None, id=None, data=None):
+        if not self.ws:
+            logger.warning("WebSocket is not connected, attempting to reconnect...")
+            await self.connect()
         try:
-            data = SendSchema(op=op, id=id, topic=topic, data=data)
-            # bytes_data = data.json().encode()
-            self.ws.send(data.json().encode())
-            # logger.info(f"Sent: {data}")
+            data = json.dumps({"op": op, "id": id, "topic": topic, "data": data})
+            await self.ws.send(data)
+            logger.info(f"Sent: {data}")
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Send error: {e}")
 
-    def send_forward_distance(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.forward_distance_sensor,
-            None,
-            ForwardDistanceSensorMsgType(
-                distance=raybot.raybot_info.forward_distance
-            ).model_dump(),
-        )
+    async def send_to_server(self):
+        while True:
+            if not self.ws:
+                await self.connect()
+            try:
+                if not self.send_msg_queue.empty():
+                    data = self.send_msg_queue.get()
+                    await self.ws.send(json.dumps(data))
+                    logger.info(f"Sent: {data}")
+            except (ConnectionClosed, WebSocketException) as e:
+                logger.warning(f"WebSocket closed: {e}, reconnecting...")
+                self.ws = None
+            except Exception as e:
+                logger.error(f"Unexpected error while sending: {e}")
+            await asyncio.sleep(0.01)
 
-    def send_backward_distance(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.backward_distance_sensor,
-            None,
-            BackwardDistanceSensorMsgType(
-                distance=raybot.raybot_info.backward_distance
-            ).model_dump(),
-        )
-
-    def send_lift_distance(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.lift_distance_sensor,
-            None,
-            LiftDistanceSensorMsgType(
-                distance=raybot.raybot_info.lift_distance
-            ).model_dump(),
-        )
-
-    def send_weight_sensor(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.weight_sensor,
-            None,
-            WeightSensorMsgType(weight=raybot.raybot_info.weight).model_dump(),
-        )
-
-    def send_battery(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.battery,
-            None,
-            BatteryMsgType(battery=raybot.raybot_info.battery).model_dump(),
-        )
-
-    def send_movement_motor(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.movement_motor,
-            None,
-            MovementMotorMsgType(
-                direction=raybot.raybot_info.movement_motor.__str__(),
-                speed=raybot.raybot_info.movement_pwm,
-            ).model_dump(),
-        )
-
-    def send_lift_motor(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.lift_motor,
-            None,
-            LiftMotorMsgType(
-                direction=raybot.raybot_info.lift_motor.__str__(),
-                speed=raybot.raybot_info.lift_pwm,
-            ).model_dump(),
-        )
-
-    def send_safety(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.safety,
-            None,
-            SafetyMsgType(
-                safety=raybot.raybot_info.safety, cause_by="Raybot safety system"
-            ).model_dump(),
-        )
-
-    def send_door_state(self):
-        self.send(
-            OperationEnum.publish,
-            TopicEnum.door_state,
-            None,
-            DoorStateMsgType(state=raybot.raybot_info.door_state).model_dump(),
-        )
-
-    def _handle_msg(self, data):
-        try:
-            data = CommandReciveSchema.model_validate_json(data)
-            command_manager.add_command(data, self.response_command)
-        except Exception as e:
-            logger.error(f"Error: {e}")
+    async def listen_to_server(self):
+        while True:
+            if not self.ws:
+                await self.connect()
+            try:
+                async for message in self.ws:
+                    logger.info(f"Received: {message}")
+                    await self.handle_msg(message)
+            except ConnectionClosed:
+                logger.warning("WebSocket connection closed, reconnecting...")
+                self.ws = None
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+            await asyncio.sleep(1)
 
     @classmethod
     def response_command(cls, command_id, name, status, msg):
@@ -169,164 +104,22 @@ class WebSocketClient(Thread):
                 data.update({"name": name})
             cls.send_msg_queue.put(
                 SendSchema(
-                    op=OperationEnum.response,
-                    id=command_id,
-                    data=data,
+                    op=OperationEnum.response, id=command_id, data=data, status=status
                 )
             )
         except WebSocketException as e:
             logger.error(f"Error: {e}")
 
-    def send_to_server(self):
-        """Gửi dữ liệu tới server (nếu có logic)."""
-        while True:
-            try:
-                # Logic gửi dữ liệu
-                # logger.info("Sending data to server...")
-                if self.ws:
-                    # self.send_forward_distance()
-                    # self.send_backward_distance()
-                    # self.send_lift_distance()
-                    # self.send_weight_sensor()
-                    # self.send_battery()
-                    # self.send_movement_motor()
-                    # self.send_lift_motor()
-                    # self.send_safety()
-                    # self.send_door_state()
-
-                    if WebSocketClient.send_msg_queue.qsize() > 0:
-                        data = WebSocketClient.send_msg_queue.get()
-                        self.ws.send(json.dumps(data.model_dump()).encode())
-                        logger.info(f"Sent: {data}")
-                # else:
-                #     logger.warning(
-                #         "WebSocket not connected. Attempting to reconnect..."
-                #     )
-                #     self.connect()
-                time.sleep(0.01)
-
-            except (ConnectionClosed, ConnectionError, OSError):
-                logger.warning(
-                    "WebSocket connection closed during sending. Reconnecting..."
-                )
-                # self.ws = None  # Đặt lại kết nối
-
-            except Exception as e:
-                logger.error(f"Error while sending: {e}")
-
-    def check_connection(self):
-        while True:
-            try:
-                if self.ws:
-                    # Gửi ping và chờ phản hồi pong
-                    # WebSocketClient.send_msg_queue.put(
-                    #     SendSchema(
-                    #         op=OperationEnum.response,
-                    #         id="aa86ecf1-85fe-4c49-8fa9-bc3f8f8b1d13",
-                    #         data={"status": "ok", "name": f"ping-{uuid.uuid4()}"},
-                    #     )
-                    # )
-                    pong_event = self.ws.ping()
-                    pong_event.wait(timeout=5)  # Thời gian chờ là 5 giây
-
-                    if pong_event.is_set():
-                        # logger.info("Ping successful, pong received.")
-                        pass
-                    else:
-                        logger.warning("Pong not received. Connection may be lost.")
-                        raise ConnectionError("Pong response timeout.")
-                else:
-                    self.connect()
-
-            except (ConnectionClosed, ConnectionError, OSError):
-                logger.warning(
-                    "WebSocket connection closed or pong failed. Reconnecting..."
-                )
-                self.ws = None  # Đặt lại kết nối
-                self.connect()
-
-            except Exception as e:
-                logger.error(f"Unexpected error: {e}")
-
-            sleep(1)  # Lặp lại kiểm tra sau mỗi 1 giây
-
-    def listen_to_server(self):
-        """Lắng nghe tin nhắn từ server qua WebSocket."""
-        while True:
-            try:
-                if self.ws:
-                    try:
-                        logger.info("Listening to server...")
-                        data = self.ws.recv()
-                        if data:
-                            logger.info(f"Received: {data}")
-                            self._handle_msg(data)
-                    except TimeoutError:
-                        logging.warning("Timeout: No response from server")
-                    except ConnectionClosed:
-                        raise
-                # sleep(0.01)
-            except (ConnectionClosed, ConnectionError, OSError):
-                logger.warning("WebSocket connection closed. Reconnecting...")
-                # self.ws = None  # Đặt lại kết nối
-
-            except Exception as e:
-                logger.error(f"Unexpected error: {e}. Reconnecting...")
-                # self.ws = None  # Đặt lại kết nối
-
-    def run(self):
-        t = Thread(target=self.send_to_server)
-        t2 = Thread(target=self.check_connection)
-        t.start()
-        t2.start()
-        self.listen_to_server()
-        # while True:
-        # self.send_forward_distance()
-        # self.send_backward_distance()
-        # self.send_lift_distance()
-        # self.send_weight_sensor()
-        # self.send_battery()
-        # self.send_movement_motor()
-        # self.send_lift_motor()
-        # self.send_safety()
-        # self.send_door_state()
-        # sleep(self.timeout)
-        # while True:
-        #     try:
-        #         if WebSocketClient.send_msg_queue.qsize() > 0:
-        #             data = WebSocketClient.send_msg_queue.get()
-        #             # self.ws.send(data.json().encode())
-        #             self.ws.send(json.dumps(data.model_dump()).encode())
-        #             logger.info(f"Sent: {data}")
-        #         data = self.ws.recv()
-        #         if data:
-        #             logger.info(f"Recive: {data}")
-        #             self.send_forward_distance()
-        #             self._hanlde_msg(data)
-        #             # self.ws.send("OK".encode())
-        #     except Exception as e:
-        #         logger.error(f"Error: {e}")
-        #     sleep(0.001)
-
-    def close(self):
+    async def handle_msg(self, data):
         try:
-            self.ws.close()
-            logger.info("Closed")
+            parsed_data = json.loads(data)
+            logger.info(f"Processing message: {parsed_data}")
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error(f"Error handling message: {e}")
 
-    def start(self):
-        self.connect()
-        retry = 0
-        while retry < 3 and not self.ws:
-            self.connect()
-            retry += 1
-            sleep(1)
-
-        Thread.start(self)
-
-
-logger = logging.getLogger(__name__)
+    async def run(self):
+        await self.connect()  # Chờ kết nối WebSocket hoàn tất trước
+        await asyncio.gather(self.send_to_server(), self.listen_to_server())
 
 
 class TopicPermission(Enum):
@@ -430,6 +223,7 @@ class WebSocketServer(Thread):
         self.is_running = True
         self.topic_manager = TopicManager()
         self.server = None
+        self.is_handle_command = False
 
         # Đăng ký các topic mặc định
         self._register_default_topics()
@@ -496,8 +290,11 @@ class WebSocketServer(Thread):
 
             if res.operation == OperationEnum.command:
                 try:
+                    # if self.is_handle_command:
                     logger.info(f"Received command: {res}")
                     command_manager.add_command(res, self.response_command)
+                # else:
+                # self._send_error(websocket, "Command handling is disabled")
                 except Exception as e:
                     self._send_error(websocket, f"Invalid command: {str(e)}")
 
