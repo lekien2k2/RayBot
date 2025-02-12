@@ -1,0 +1,13 @@
+[Unit]
+Description=Electric collector service
+After=network.target
+
+[Service]
+Type=idle
+Restart=on-failure
+User=root
+# with orangepi, if radxa replace root = radxa
+ExecStart=/bin/bash -c 'cd /home/radxa/raybot/ && source .venv/bin/activate && python -m app'
+
+[Install]
+WantedBy=multi-user.target
